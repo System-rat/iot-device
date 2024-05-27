@@ -2,8 +2,11 @@
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8000
 
 # AI Thinker thingy sucks and only has 2MB
-CONFIG_ESPTOOLPY_FLASHSIZE_DETECT=No
-CONFIG_ESPTOOLPY_FLASHSIZE_2MB=Yes
+CONFIG_ESPTOOLPY_FLASHSIZE_DETECT=n
+CONFIG_ESPTOOLPY_FLASHSIZE_2MB=y
+
+CONFIG_LWIP_IPV4=y
+CONFIG_LWIP_IPV6=y
 
 # Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
 # This allows to use 1 ms granuality for thread sleeps (10 ms by default).
