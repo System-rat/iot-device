@@ -8,6 +8,8 @@ CONFIG_ESPTOOLPY_FLASHSIZE_2MB=y
 CONFIG_LWIP_IPV4=y
 CONFIG_LWIP_IPV6=y
 
+CONFIG_HTTPD_WS_SUPPORT=y
+
 # Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
 # This allows to use 1 ms granuality for thread sleeps (10 ms by default).
 #CONFIG_FREERTOS_HZ=1000
