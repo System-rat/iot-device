@@ -91,15 +91,21 @@ fn main() -> Result<()> {
     wifi.set_configuration(&Configuration::Client(ClientConfiguration {
         ssid: WIFI_SSID.try_into().unwrap(),
         password: WIFI_PASSWORD.try_into().unwrap(),
+        channel: None,
+        auth_method: esp_idf_svc::wifi::AuthMethod::WPA2Personal,
         ..Default::default()
     }))?;
 
     wifi.start()?;
     wifi.connect()?;
 
-    let _event = event_loop.subscribe::<WifiEvent, _>(|e| {
+    let _event = event_loop.subscribe::<WifiEvent, _>(move |e| {
         info!("WiFi Event: {:?}", e);
+        if matches!(e, WifiEvent::StaDisconnected) {
+            let _ = wifi.connect();
+        }
     })?;
+
 
     let (telemetry_tx, telemetry_rx) = channel::<TelemetryMessage>();
 
