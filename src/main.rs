@@ -16,7 +16,7 @@ use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     nvs::{EspDefaultNvsPartition, EspNvs},
     wifi::{ClientConfiguration, Configuration, EspWifi, WifiEvent},
-    ws::client::{EspWebSocketClient, WebSocketEventType},
+    ws::client::{EspWebSocketClient, EspWebSocketClientConfig, WebSocketEventType},
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
@@ -121,8 +121,12 @@ fn main() -> Result<()> {
             "{}?device_id={}&auth_password={}",
             WEB_SOCKET_URL, DEVICE_ID, DEVICE_KEY
         ),
-        &Default::default(),
-        Duration::from_secs(10),
+        &EspWebSocketClientConfig {
+            network_timeout_ms: Duration::from_secs(2),
+            reconnect_timeout_ms: Duration::from_secs(2),
+            ..Default::default()
+        },
+        Duration::from_secs(2),
         move |e| {
             if let Ok(we) = e {
                 if let WebSocketEventType::Text(txt) = we.event_type {
