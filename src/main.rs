@@ -5,10 +5,11 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use dht_sensor::DhtReading;
 use embedded_hal::{delay::DelayNs, digital::StatefulOutputPin};
 use esp_idf_hal::{
     delay::FreeRtos,
-    gpio::{AnyIOPin, Input, Output, PinDriver},
+    gpio::{AnyIOPin, IOPin, Input, Output, PinDriver},
     peripherals::Peripherals,
 };
 use esp_idf_svc::{
@@ -35,6 +36,7 @@ enum RelayMessage {
     Toggle,
     On,
     Off,
+    Status,
 }
 
 #[derive(Serialize)]
@@ -46,6 +48,7 @@ struct RelayStatus {
 #[derive(Serialize)]
 enum Telemetry {
     Relay(RelayStatus),
+    Sensor((i8, u8)),
     Empty,
 }
 
@@ -106,11 +109,11 @@ fn main() -> Result<()> {
         }
     })?;
 
-
     let (telemetry_tx, telemetry_rx) = channel::<TelemetryMessage>();
 
     let tx = relay_control_thread(relays, telemetry_tx.clone());
-    let _t = button_control(buttons, tx.clone());
+    let _button_thread = button_control(buttons, tx.clone());
+    let _sensor_thread = sensor_control(p.pins.gpio3.downgrade(), telemetry_tx.clone())?;
     let wifi_tx = tx.clone();
 
     let mut ws = EspWebSocketClient::new(
@@ -125,7 +128,11 @@ fn main() -> Result<()> {
                 if let WebSocketEventType::Text(txt) = we.event_type {
                     info!("Got message: {}", txt);
                     if let Ok(msg) = serde_json::from_str::<RelayRemoteMessage>(txt) {
-                        let _ = tx.send((msg.id, RelayMessage::Toggle));
+                        if msg.state {
+                            let _ = tx.send((msg.id, RelayMessage::Status));
+                        } else {
+                            let _ = tx.send((msg.id, RelayMessage::Toggle));
+                        }
                     }
                 }
             }
@@ -200,6 +207,10 @@ fn relay_control_thread(
                     }
 
                     rid = id;
+                },
+                (id, RelayMessage::Status) => {
+                    info!("Reporting status");
+                    rid = id;
                 }
             }
 
@@ -214,4 +225,31 @@ fn relay_control_thread(
     });
 
     tx
+}
+
+fn sensor_control(
+    dht_pin: AnyIOPin,
+    telemetry_tx: Sender<TelemetryMessage>,
+) -> Result<JoinHandle<()>> {
+    let mut driver = PinDriver::input_output(dht_pin)?;
+    driver.set_pull(esp_idf_hal::gpio::Pull::Down)?;
+
+    let _ = dht_sensor::dht11::Reading::read(&mut FreeRtos, &mut driver);
+
+    FreeRtos.delay_ms(1000);
+
+    Ok(std::thread::spawn(move || loop {
+        if let Ok(reading) = dht_sensor::dht11::Reading::read(&mut FreeRtos, &mut driver) {
+            info!(
+                "Sensor reading: temp = {} hum = {}",
+                reading.temperature, reading.relative_humidity
+            );
+            let _ = telemetry_tx.send(TelemetryMessage {
+                device_id: DEVICE_ID.to_string(),
+                telemetry: Telemetry::Sensor((reading.temperature, reading.relative_humidity)),
+            });
+        }
+
+        FreeRtos.delay_ms(2000);
+    }))
 }

@@ -380,6 +380,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dht-sensor"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74d643854f324f02daea7153ebbfec5cfcc2f395faf1c7011be65e543570de28"
+dependencies = [
+ "embedded-hal 0.2.7",
+]
+
+[[package]]
 name = "document-features"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -871,6 +880,7 @@ name = "iot-device"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dht-sensor",
  "embedded-hal 1.0.0",
  "embedded-svc",
  "embuild",
