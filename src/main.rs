@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use dht_sensor::DhtReading;
 use embedded_hal::{delay::DelayNs, digital::StatefulOutputPin};
 use esp_idf_hal::{
-    delay::FreeRtos,
+    delay::{Ets, FreeRtos},
     gpio::{AnyIOPin, IOPin, Input, Output, PinDriver},
     peripherals::Peripherals,
 };
@@ -211,7 +211,7 @@ fn relay_control_thread(
                     }
 
                     rid = id;
-                },
+                }
                 (id, RelayMessage::Status) => {
                     info!("Reporting status");
                     rid = id;
@@ -236,24 +236,27 @@ fn sensor_control(
     telemetry_tx: Sender<TelemetryMessage>,
 ) -> Result<JoinHandle<()>> {
     let mut driver = PinDriver::input_output(dht_pin)?;
-    driver.set_pull(esp_idf_hal::gpio::Pull::Down)?;
-
-    let _ = dht_sensor::dht11::Reading::read(&mut FreeRtos, &mut driver);
+    driver.set_pull(esp_idf_hal::gpio::Pull::Up)?;
 
     FreeRtos.delay_ms(1000);
 
     Ok(std::thread::spawn(move || loop {
-        if let Ok(reading) = dht_sensor::dht11::Reading::read(&mut FreeRtos, &mut driver) {
-            info!(
-                "Sensor reading: temp = {} hum = {}",
-                reading.temperature, reading.relative_humidity
-            );
-            let _ = telemetry_tx.send(TelemetryMessage {
-                device_id: DEVICE_ID.to_string(),
-                telemetry: Telemetry::Sensor((reading.temperature, reading.relative_humidity)),
-            });
+        match dht_sensor::dht11::Reading::read(&mut Ets, &mut driver) {
+            Ok(reading) => {
+                info!(
+                    "Sensor reading: temp = {} hum = {}",
+                    reading.temperature, reading.relative_humidity
+                );
+                let _ = telemetry_tx.send(TelemetryMessage {
+                    device_id: DEVICE_ID.to_string(),
+                    telemetry: Telemetry::Sensor((reading.temperature, reading.relative_humidity)),
+                });
+            }
+            Err(e) => {
+                error!("Sensor reading error: {:?}", e);
+            }
         }
 
-        FreeRtos.delay_ms(2000);
+        FreeRtos.delay_ms(3000);
     }))
 }
